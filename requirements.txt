@@ -1,0 +1,11 @@
+pytesseract
+PyMuPDF
+opencv-python
+pillow
+pandas
+numpy
+python-dotenv
+google-cloud-vision
+python-multipart
+fastapi
+uvicorn
