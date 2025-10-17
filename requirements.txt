@@ -9,3 +9,4 @@ google-cloud-vision
 python-multipart
 fastapi
 uvicorn
+scikit-learn
