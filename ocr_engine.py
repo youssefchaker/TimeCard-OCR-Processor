@@ -108,6 +108,6 @@ class OCREngine:
         return {
             'text': merged_text,
             'confidence': avg_confidence,
-            'bbox': block_items[0]['bbox'],  # Use first item's bbox
+            'bbox': block_items[0]['bbox'],
             'item_count': len(block_items)
         }

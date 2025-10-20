@@ -42,18 +42,16 @@ class TimeCardOCRApp:
                     extracted_data = self.ocr_engine.extract_text_with_confidence(processed_image)
                     text_blocks = self.ocr_engine.group_text_by_blocks(extracted_data)
                 
-                # Parse document - ALWAYS get data, even if minimal
+                # Parse document
                 page_result = self.parser.parse_document(text_blocks)
                 
-                # Ensure we always have output for this page
-                page_data = self._ensure_page_output(page_result, text_blocks, page_num + 1)
-                
-                # Collect data frame for this page
-                data_info = {
-                    'page': page_num + 1,
-                    'dataframe': page_data
-                }
-                all_data_frames.append(data_info)
+                # Collect all data frames from this page
+                for data_frame in page_result.get('structured_data', []):
+                    data_info = {
+                        'page': page_num + 1,
+                        'dataframe': data_frame
+                    }
+                    all_data_frames.append(data_info)
                 
                 print(f"  Page {page_num + 1} done")
             
@@ -76,35 +74,8 @@ class TimeCardOCRApp:
                 'error': str(e)
             }
     
-    def _ensure_page_output(self, page_result: Dict, text_blocks: List[Dict], page_num: int) -> pd.DataFrame:
-        """Ensure we always have output for every page, even if minimal"""
-        # Check if we have structured data
-        structured_data = page_result.get('structured_data', [])
-        
-        if structured_data:
-            # Use the first structured data frame found
-            for data_frame in structured_data:
-                if not data_frame.empty:
-                    return data_frame
-        
-        # If no structured data or all empty, create basic output
-        return self._create_basic_output(text_blocks, page_num)
-    
-    def _create_basic_output(self, text_blocks: List[Dict], page_num: int) -> pd.DataFrame:
-        """Create basic output when no structured data is found"""
-        if not text_blocks:
-            # Create empty dataframe with one row indicating no data
-            return pd.DataFrame([["No text detected on page"]])
-        
-        # Create simple output with all text blocks in order
-        data = []
-        for block in text_blocks:
-            data.append([block['text']])
-        
-        return pd.DataFrame(data)
-    
     def _save_csv_files(self, pdf_path: str, data_sets: List[Dict]) -> List[str]:
-        """Save all data as CSV files - ensure proper comma separation"""
+        """Save all data as CSV files"""
         filename = os.path.basename(pdf_path).replace('.pdf', '')
         output_files = []
         
@@ -119,18 +90,17 @@ class TimeCardOCRApp:
             try:
                 df = data_info['dataframe']
                 
-                # Ensure proper CSV formatting with commas
                 if df.empty:
-                    # Create empty CSV with just headers if needed
+                    # Create empty file
                     with open(csv_path, 'w', encoding='utf-8') as f:
-                        f.write("")
+                        f.write("No data extracted")
                 else:
                     # Save with proper CSV formatting
-                    # Use header=False to remove column names, but ensure commas between columns
-                    df.to_csv(csv_path, index=False, header=False, encoding='utf-8')
-                    
-                    # Verify the CSV has proper comma separation
-                    self._verify_csv_format(csv_path)
+                    # Include headers for tables, exclude for sequential data
+                    if len(df.columns) > 1:  # Likely a table
+                        df.to_csv(csv_path, index=False, encoding='utf-8')
+                    else:  # Sequential data
+                        df.to_csv(csv_path, index=False, header=False, encoding='utf-8')
                 
                 output_files.append(csv_path)
                 
@@ -139,22 +109,6 @@ class TimeCardOCRApp:
         
         print(f"Saved {len(output_files)} CSV files")
         return output_files
-    
-    def _verify_csv_format(self, csv_path: str):
-        """Verify that the CSV file has proper comma separation"""
-        try:
-            with open(csv_path, 'r', encoding='utf-8') as f:
-                content = f.read().strip()
-            
-            if content:
-                lines = content.split('\n')
-                for line in lines:
-                    # Check if this looks like a multi-column row that should have commas
-                    if len(line) > 50 and ',' not in line:  # Long line without commas
-                        print(f"Warning: Potential formatting issue in {os.path.basename(csv_path)}")
-                        break
-        except Exception:
-            pass
     
     def process_directory(self, directory_path: str = None) -> list:
         """Process all PDFs in a directory"""
@@ -170,7 +124,7 @@ class TimeCardOCRApp:
             pdf_path = os.path.join(directory_path, pdf_file)
             result = self.process_pdf(pdf_path)
             results.append(result)
-            print()  # Empty line between files
+            print()
         
         return results
 

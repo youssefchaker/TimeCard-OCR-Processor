@@ -16,9 +16,8 @@ class ImagePreprocessor:
     def pdf_to_images(self, pdf_path: str) -> list:
         """Convert PDF to list of images using PyMuPDF"""
         try:
-            import fitz  # PyMuPDF
+            import fitz
             
-            # Open the PDF
             pdf_document = fitz.open(pdf_path)
             images = []
             
